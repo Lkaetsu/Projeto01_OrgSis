@@ -75,13 +75,29 @@ OP_SUBTRACAO ENDP
 
 OP_MULTIPLICACAO PROC
     CALL IMPRESSAO_OP
+    
+    SUB BL,30h          ;transforma caracteres em numeros
+    SUB BH,30h
+    MOV AX,0            ;zera ax para ser utilizado na operacao
+    MOV AL,BH
+    MOV CH,8            ;inicializa contador do loop volta
+    VOLTA:
+    TEST AL,01          ;se al AND 1=1
+    JZ SE1
+    ADD AH,BL           ;faz a operacao prod=prod+mcand
+    SE1:
+    SHR AX,1            ;desloca ax para a direita
+    DEC CH
+    JNZ VOLTA           ;enquanto ch for diferente volta para o comeco do loop
 
+    MOV BL,AL
     CMP BL,0Ah
-    JBE M_10             ;se o resultado for maior que dez entra na funcao
+    JBE Ma_10             ;se o resultado for maior que dez entra na funcao
     CALL MAIOR_10
     JMP FIM1
-    M_10:
+    Ma_10:
 
+    MOV AH,02
     ADD BL,30h          ;impressao do resultado
     MOV DL,BL
     INT 21h
