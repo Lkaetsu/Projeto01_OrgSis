@@ -4,7 +4,8 @@ TITLE Nome: Leonardo Seiji Kaetsu       RA: 22008336
     msg1 db 'Entre o primeiro numero: $'
     msg2 db 'Entre a operacao desejada(+,-,*,/): $'
     msg3 db 'Entre o segundo numero: $'
-    error db 'Erro: Operacao invalida!$'
+    res db '    Resto: $'
+    error db 'Erro: Operacao invalida!',10,'(Cheque se a operacao esta entre as 4 opcoes ou se fez uma divisao por zero.)$'
 .CODE
 IMPRESSAO_OP PROC
     MOV DL,BL           ;impressao da operacao completa
@@ -15,6 +16,8 @@ IMPRESSAO_OP PROC
     INT 21h
     MOV DL,'='
     INT 21h
+    SUB BL,30h          ;transforma caracteres em numeros para as operacoes
+    SUB BH,30h
     RET
 IMPRESSAO_OP ENDP
 
@@ -38,10 +41,7 @@ MAIOR_10 ENDP
 OP_SOMA PROC
     CALL IMPRESSAO_OP
 
-    SUB BL,30h          ;operacao
-    SUB BH,30h
-    ADD BL,BH
-
+    ADD BL,BH           ;operacao
     CMP BL,0Ah
     JBE M_10             ;se o resultado for maior que dez entra na funcao
     CALL MAIOR_10
@@ -57,10 +57,7 @@ OP_SOMA ENDP
 OP_SUBTRACAO PROC
     CALL IMPRESSAO_OP
 
-    SUB BL,30h          ;operacao
-    SUB BH,30h
-    SUB BL,BH
-
+    SUB BL,BH           ;operacao
     JNS Negativo        ;se o resultado for negativo transforma-lo em positivo e imprimir um - em sua frente
         MOV DL,'-'
         INT 21h
@@ -76,9 +73,7 @@ OP_SUBTRACAO ENDP
 OP_MULTIPLICACAO PROC
     CALL IMPRESSAO_OP
     
-    SUB BL,30h          ;transforma caracteres em numeros
-    SUB BH,30h
-    MOV AX,0            ;zera ax para ser utilizado na operacao
+    MOV AX,0            ;zera ax para ser utilizado na operacao como prod
     MOV AL,BH
     MOV CH,8            ;inicializa contador do loop volta
     VOLTA:
@@ -92,7 +87,7 @@ OP_MULTIPLICACAO PROC
 
     MOV BL,AL
     CMP BL,0Ah
-    JBE Ma_10             ;se o resultado for maior que dez entra na funcao
+    JBE Ma_10           ;se o resultado for maior que dez entra na funcao
     CALL MAIOR_10
     JMP FIM1
     Ma_10:
@@ -106,6 +101,38 @@ OP_MULTIPLICACAO ENDP
 
 OP_DIVISAO PROC
     CALL IMPRESSAO_OP
+
+    AND AX,0            ;zera ax para ser utilizado na operacao como rem
+    MOV AL,BL
+    AND BL,0            ;zera bl para utilizar bx como div
+    AND CL,0            ;zera cl para ser utilizado na operacao como quo
+    MOV CH,9            ;inicializa contador do loop volta
+    VOLTA2:
+    SUB AX,BX           ;faz a operacao rem=rem-div
+    JNS SE2             ;se ax<0
+    ADD AX,BX           ;faz operaracao rem=rem-div
+    SHL CL,1            ;e desloca o quociente para a esquerda
+    JMP FIM2
+    SE2:                ;se ax>=0
+    SHL CL,1            ;desloca para a esquerda
+    INC CL              ;e coloca 1 no q0
+    FIM2:
+    SHR BX,1            ;desloca bx para a direita
+    DEC CH
+    JNZ VOLTA2          ;enquanto ch for diferente volta para o comeco do loop
+
+    MOV BH,AL
+    MOV AH,02
+    ADD CL,30h          ;impressao do quociente
+    MOV DL,CL
+    INT 21h
+    MOV AH,09
+    LEA DX,res
+    INT 21h
+    MOV AH,02           ;impressao do resto
+    MOV DL,BH
+    ADD DL,30h
+    INT 21h
     RET
 OP_DIVISAO ENDP
 
@@ -167,11 +194,14 @@ MAIN PROC
 
     CMP CL,'/'
     JNZ Divisao             ;se o caracter da operacao for diferente de / pular para a proxima operacao
+    CMP BH,30h
+    JZ DIV0
     CALL OP_DIVISAO
     JMP FIM_DIVI            ;pula para o final do programa
+    DIV0:
     Divisao:
 
-    MOV AH,09               ;impressao da mensagem de erro se a operacao nao for uma das aplicaveis
+    MOV AH,09               ;impressao da mensagem de erro se a operacao nao for uma das aplicaveis ou em caso de uma divisao por 0
     LEA DX,error
     INT 21h
 
